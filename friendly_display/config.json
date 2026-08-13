@@ -1,0 +1,16 @@
+{
+  "mbta_settings": {
+    "base_url": "https://api-v3.mbta.com",
+    "api_key": "09dfa8ccbda94b0ba2dcb8628787cbc6"
+  },
+  "transit_groups": {
+    "Eastbound (To Harvard Sq)": {
+      "stops": ["2061", "2115"],
+      "routes": ["71", "73"]
+    },
+    "Westbound (To Watertown/Belmont)": {
+      "stops": ["2033", "2119"],
+      "routes": ["71", "73"]
+    }
+  }
+}
