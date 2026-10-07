@@ -28,18 +28,25 @@ class TransitPanel(DataPanel):
         self.querier.refresh()
 
     def render(self):
-        lines = [f"=== {self.name.upper()} ==="]
+        lines = [[f"=== {self.name.upper()} ==="]]
+        colors = ["black"]
+        
         departures = self.querier.get_items()[: self.max_departures]
 
         if not departures:
-            lines.append(" No upcoming arrivals scheduled.")
-            return "\n".join(lines)
-
-        for dep in departures:
-            alert = ""
-            #alert = " *" if dep.minutes_away <= 5 else ""
-            lines.append(
-                f" Route {dep.route:<2} to {dep.destination:<20} | "
-                f"{dep.minutes_away:>2} min{alert}  ({dep.stop_name})"
-            )
-        return "\n".join(lines)
+            lines.append(["No upcoming arrivals scheduled."])
+            colors.append("black")
+        else:
+            for dep in departures:
+                line = [
+                    f"{dep.route} to {dep.destination}",
+                    f"{dep.minutes_away} min",
+                    f"{dep.stop_name}"
+                ]
+                if dep.minutes_away <= 5:
+                    color = "red"
+                else:
+                    color = "black"
+                lines.append(line)
+                colors.append(color)
+        return lines, colors

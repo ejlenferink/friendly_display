@@ -5,11 +5,13 @@ per transit group, and runs the refresh/print loop.
 Nothing here mentions Harvard, Watertown, 71, or 73 -- that all lives in
 config.json.
 """
+import inky_frame
+from picographics import PicoGraphics, DISPLAY_INKY_FRAME_SPECTRA_7 as DISPLAY
 
 import json
 import os
 import time
-from datetime import datetime
+#from datetime import datetime
 
 from .mbta_client import MBTAClient
 from .queriers import TransitGroupQuerier
@@ -19,7 +21,7 @@ from .panels import TransitPanel
 class DashboardEngine:
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.json')
+            config_path = 'friendly_display/config.json'
         with open(config_path) as f:
             config = json.load(f)
 
@@ -31,19 +33,30 @@ class DashboardEngine:
             querier = TransitGroupQuerier(self.client, rules["stops"], rules.get("routes"))
             self.panels.append(TransitPanel(group_name, querier))
 
-    def run_forever(self, interval_seconds=30):
-        print("Starting dashboard...")
-        try:
-            while True:
-                print("\033[H\033[J", end="")  # clear screen
-                print(f"MBTA DASHBOARD | {datetime.now().strftime('%I:%M:%S %p')}\n")
-                for panel in self.panels:
-                    panel.refresh()
-                    print(panel.render())
-                    print()
-                time.sleep(interval_seconds)
-        except KeyboardInterrupt:
-            print("\nExiting.")
+    def run_forever(self, interval_seconds=40):
+        graphics = PicoGraphics(DISPLAY)
+        scale = 2
+        cell_widths = [300, 150, 350]
+        while True:
+            graphics.set_pen(inky_frame.WHITE)
+            graphics.clear()           
+            graphics.set_font('bitmap8')
+            xoffset = 10
+            yoffset = 10
+            for panel in self.panels:
+                panel.refresh()
+                lines, colors = panel.render()
+                y = yoffset
+                for line, color in zip(lines, colors):
+                    graphics.set_pen(getattr(inky_frame, color.upper()))
+                    x = xoffset
+                    for j, text in enumerate(line):
+                        graphics.text(text, x, y, 800-xoffset, scale=scale)
+                        x += cell_widths[j]
+                    y += scale*10
+                yoffset += 240
+            graphics.update()
+            time.sleep(interval_seconds)
 
 
 if __name__ == "__main__":

@@ -4,13 +4,12 @@ stop_id -> name, since looking up a name is just another kind of query.
 Nothing in this file knows about "eastbound" or panels.
 """
 
-import requests
+import urequests
 
 
 class MBTAClient:
     def __init__(self, base_url="https://api-v3.mbta.com", api_key=None):
         self.base_url = base_url.rstrip("/")
-        self.session = requests.Session()
         self.headers = {"Accept": "application/vnd.api+json"}
         if api_key and api_key != "YOUR_FREE_MBTA_API_KEY":
             self.headers["x-api-key"] = api_key
@@ -22,10 +21,10 @@ class MBTAClient:
         if stop_id in self._stop_name_cache:
             return self._stop_name_cache[stop_id]
         try:
-            resp = self.session.get(
-                f"{self.base_url}/stops/{stop_id}", headers=self.headers, timeout=10
+            resp = urequests.get(
+                f"{self.base_url}/stops/{stop_id}", headers=self.headers
             )
-            resp.raise_for_status()
+            #resp.raise_for_status()
             name = resp.json()["data"]["attributes"]["name"]
         except Exception:
             name = f"Stop #{stop_id}"
@@ -44,8 +43,9 @@ class MBTAClient:
         }
         if route_ids:
             params["filter[route]"] = ",".join(str(r) for r in route_ids)
-        resp = self.session.get(
-            f"{self.base_url}/predictions", params=params, headers=self.headers, timeout=10
-        )
-        resp.raise_for_status()
+            
+        query_string = "&".join(f"{k}={v}" for k, v in params.items())
+        full_url = f"{self.base_url}/predictions?{query_string}"
+        resp = urequests.get(full_url, headers=self.headers)
+        #resp.raise_for_status()
         return resp.json()

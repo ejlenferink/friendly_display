@@ -50,7 +50,7 @@ class TransitGroupQuerier(DataQuerier):
             when_str = attrs.get("arrival_time") or attrs.get("departure_time")
             if not when_str:
                 continue
-            when = datetime.fromisoformat(when_str)
+            when = when_str
 
             route_id = rels["route"]["data"]["id"]
             stop_id = rels["stop"]["data"]["id"]
@@ -66,7 +66,6 @@ class TransitGroupQuerier(DataQuerier):
                     destination = route["attributes"]["direction_destinations"][direction_id]
                 except (IndexError, KeyError, TypeError):
                     pass
-
             departures.append(Departure(
                 route=route_id,
                 destination=destination,
