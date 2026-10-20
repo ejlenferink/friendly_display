@@ -28,7 +28,7 @@ class TransitPanel(DataPanel):
         self.querier.refresh()
 
     def render(self):
-        lines = [[f"=== {self.name.upper()} ==="]]
+        lines = [[f"{self.name.upper()}"]]
         colors = ["black"]
         
         departures = self.querier.get_items()[: self.max_departures]
