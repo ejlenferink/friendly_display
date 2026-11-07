@@ -22,7 +22,7 @@ class MBTAClient:
             return self._stop_name_cache[stop_id]
         try:
             resp = urequests.get(
-                f"{self.base_url}/stops/{stop_id}", headers=self.headers
+                f"{self.base_url}/stops/{stop_id}", headers=self.headers, timeout=10
             )
             #resp.raise_for_status()
             name = resp.json()["data"]["attributes"]["name"]
@@ -46,6 +46,9 @@ class MBTAClient:
             
         query_string = "&".join(f"{k}={v}" for k, v in params.items())
         full_url = f"{self.base_url}/predictions?{query_string}"
-        resp = urequests.get(full_url, headers=self.headers)
-        #resp.raise_for_status()
-        return resp.json()
+        try:
+            resp = urequests.get(full_url, headers=self.headers, timeout=10)
+            resp = resp.json()
+        except Exception:
+            resp = {}
+        return resp

@@ -1,12 +1,3 @@
-"""
-Entry point. DashboardEngine reads config.json, builds one TransitPanel
-per transit group, and runs the refresh/print loop.
-
-Nothing here mentions Harvard, Watertown, 71, or 73 -- that all lives in
-config.json.
-"""
-
-import framebuf
 import json
 import os
 import time
@@ -15,28 +6,87 @@ TIMEZONE_OFFSET = -4
 from .mbta_client import MBTAClient
 from .queriers import TransitGroupQuerier
 from .panels import TransitPanel
-from . import Pico_ePaper_7_5
-from .font_writer import CustomFontWriter
-from . import arial20
 
-def scaled_text(fbuf, text, x, y, scale, color):
-    # Each character is natively 8 pixels wide
-    for char_idx, char in enumerate(text):
-        # Create a temporary 8x8 buffer to render a single character
-        char_buf = bytearray(8)
-        char_fbuf = framebuf.FrameBuffer(char_buf, 8, 8, framebuf.MONO_VLSB)
-        char_fbuf.text(char, 0, 0, 1)
+import hardware_setup  # Must be first: creates the display
+
+import asyncio
+from gui.core.ugui import Screen, ssd
+from gui.core.writer import Writer  # Monochrome display: Writer, not CWriter
+from gui.widgets import Label, Button, CloseButton, QRMap
+import gui.fonts.arial20 as font10
+from gui.core.colors import BLACK, WHITE
+
+ssd.min_interval = 5_000  # ms between refreshes. 0 = refresh on every change.
+
+
+class BaseScreen(Screen):
+    def __init__(self, panels=[], interval_seconds=1):
+        super().__init__()
+        wri = Writer(ssd, font10, verbose=False)
+        super().__init__(wri)
+        self.wri = wri
+        self.n = 0
+        self.interval_seconds = interval_seconds
+        self.panels = panels
         
-        # Scale and copy pixels over to the main frame buffer
-        for px in range(8):
-            for py in range(8):
-                if char_fbuf.pixel(px, py):
-                    # Draw a scaled block for each active pixel
-                    fbuf.fill_rect(
-                        x + (char_idx * 8 * scale) + (px * scale),
-                        y + (py * scale),
-                        scale, scale, color
-                    )
+        column_widths = [300, 150, 330]
+        column_offsets = []
+        total = 0
+        for width in column_widths:
+            column_offsets.append(total)
+            total += width
+        self.max_items = 5
+        
+        self.display_panels = []
+        
+        x0, y0 = 10, 10
+        self.display_panels.append({
+            "header": Label(wri, y0, x0, total),
+            "lines": [
+                [
+                    Label(wri, y0 + 24*(i + 1), x0 + _, __) for _, __ in zip(column_offsets, column_widths)
+                ] for i in range(self.max_items)
+            ]
+        })
+        
+        y0 += int((self.max_items + 2.5) * 24) 
+        self.display_panels.append({
+            "header": Label(wri, y0, x0, total),
+            "lines": [
+                [
+                    Label(wri, y0 + 24*(i + 1), x0 + _, __) for _, __ in zip(column_offsets, column_widths)
+                ] for i in range(self.max_items)
+            ]
+        })
+        
+        y0 = 386
+        self.qrcode = QRMap(wri, y0, x0, version=4, scale=2)
+        self.qrcode.fgcolor=WHITE
+        self.qrcode.bgcolor=BLACK
+        self.qrcode.value("WIFI:S:Poopycat 2.4G;T:WPA;P:iamaleafonthewind;H:false;;")
+        
+        self.display_time = Label(wri, y0, 2*x0 + 94, 200)
+        
+    def after_open(self):  # Runs once the screen is up and asyncio is running
+        self.reg_task(self.updater())  # Task is cancelled automatically on close
+
+    async def updater(self):
+        # Stand-in for "fetch bus times". Change the label whenever you like;
+        # the driver batches changes into one refresh per min_interval.
+        while True:
+            await asyncio.sleep(self.interval_seconds)
+            self.n += 1
+            for panel, display_panel in zip(self.panels, self.display_panels):
+                panel.refresh()
+                lines, colors = panel.render()
+                display_panel["header"].value(lines[0][0])
+                for i, line in enumerate(lines[1:self.max_items+1]):
+                    for j, text in enumerate(line):
+                        display_panel["lines"][i][j].value(text)
+                        
+            now = time.localtime(time.time() + TIMEZONE_OFFSET * 3600)
+            text = "{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}".format(*now[:6])
+            self.display_time.value(text)
 
 
 class DashboardEngine:
@@ -53,46 +103,9 @@ class DashboardEngine:
         for group_name, rules in config["transit_groups"].items():
             querier = TransitGroupQuerier(self.client, rules["stops"], rules.get("routes"))
             self.panels.append(TransitPanel(group_name, querier))
-            
-        self.epd = Pico_ePaper_7_5.EPD_7in5()
-        self.canvas = self.epd.image1Gray
-        self.font_writer = CustomFontWriter(self.canvas, arial20)
 
-    def run_forever(self, interval_seconds=20):
-        scale = 1
-        cell_widths = [300, 150, 350]
-        while True:
-            start = time.time()
-            self.canvas.fill(0xff)           
-            #graphics.set_font('bitmap8')
-            xoffset = 10
-            yoffset = 10
-            for panel in self.panels:
-                panel.refresh()
-                lines, colors = panel.render()
-                y = yoffset
-                for line, color in zip(lines, colors):
-                    #graphics.set_pen(getattr(inky_frame, color.upper()))
-                    x = xoffset
-                    for j, text in enumerate(line):
-                        self.font_writer.write_text(text, x, y)
-                        #scaled_text(self.canvas, text, x, y, 2, 0x00)
-                        #self.canvas.text(text, x, y, 0x00)
-                        #graphics.text(text, x, y, 800-xoffset, scale=scale)
-                        x += cell_widths[j]
-                    y += scale*25
-                yoffset += 240
-            #graphics.update()
-            
-            now = time.localtime(time.time() + TIMEZONE_OFFSET * 3600)
-            text = "{:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}".format(*now[:6])
-            self.font_writer.write_text(text, xoffset, 480 - xoffset - 25)
-            #print(time.time()-start)
-                
-                
-            self.epd.display(self.epd.buffer_1Gray)
-            time.sleep(interval_seconds)
-
+    def run_forever(self, interval_seconds=30):
+        Screen.change(BaseScreen, kwargs={"interval_seconds": interval_seconds, "panels": self.panels})
 
 if __name__ == "__main__":
     engine = DashboardEngine()

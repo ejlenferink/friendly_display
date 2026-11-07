@@ -1,37 +1,50 @@
 from friendly_display.main import DashboardEngine
 from secrets import WIFI_PASSWORD, WIFI_SSID
+import machine
 import network
 import ntptime
 import time
+import sys
 
-# Initialize Wi-Fi interface in station mode
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
+try:
+    # Initialize Wi-Fi interface in station mode
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(False)
+    wlan.active(True)
 
-# Connect to the Wi-Fi network
-wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-# Wait for the connection to establish
-max_wait = 10
-while max_wait > 0:
-    if wlan.status() < 0 or wlan.status() >= 3:
-        break
-    max_wait -= 1
-    print('waiting for connection...')
-    time.sleep(1)
+    # Connect to the Wi-Fi network
+    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+    # Wait for the connection to establish
+    max_wait = 10
+    while True:
+        if wlan.status() < 0 or wlan.status() >= 3:
+            break
+        max_wait -= 1
+        print('waiting for connection...')
+        time.sleep(1)
 
-# Check connection status
-if wlan.status() != 3:
-    raise RuntimeError('network connection failed')
-else:
-    print('connected!')
-    print('ip address:', wlan.ifconfig()[0])
+    # Check connection status
+    if wlan.status() != 3:
+        raise RuntimeError('network connection failed')
+    else:
+        print('connected!')
+        print('ip address:', wlan.ifconfig()[0])
 
-ntptime.settime()
+    ntptime.settime()
 
-#ih.network_connect(WIFI_SSID, WIFI_PASSWORD)
+    #ih.network_connect(WIFI_SSID, WIFI_PASSWORD)
 
-#inky_frame.set_time()
-#inky_frame.pcf_to_pico_rtc()
+    #inky_frame.set_time()
+    #inky_frame.pcf_to_pico_rtc()
 
-engine = DashboardEngine()
-engine.run_forever()
+    engine = DashboardEngine()
+    engine.run_forever()
+except Exception as e:
+    # Open error log file on the board's internal flash storage
+    with open('error_log.txt', 'a') as f:
+        f.write(f'--- Crash at {time.ticks_ms()} ---\n')
+        sys.print_exception(e, f)
+        f.write('\n')
+    print("Going to reset in 10 seconds...")
+    time.sleep(10)
+    machine.reset()
