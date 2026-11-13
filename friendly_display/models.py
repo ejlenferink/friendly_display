@@ -1,4 +1,3 @@
-from machine import RTC
 import time
 
 class Departure:
@@ -12,7 +11,6 @@ class Departure:
     @property
     def minutes_away(self):
         now = time.time()
-        
         date_part, time_part = self.when.split('T')
         
         year = int(date_part[0:4])

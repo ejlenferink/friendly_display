@@ -1,25 +1,12 @@
-"""
-TransitGroupQuerier is the "querying" half of the split: it fetches and
-parses predictions for one named group of stops (e.g. "Eastbound (To
-Harvard Sq)") and hands back a sorted list of Departures. TransitPanel,
-in panels.py, is the "display" half, and only ever talks to this class
-through refresh()/get_items() -- it never touches the API or the parsing.
-"""
-import abc
-from datetime import datetime
-
 from .models import Departure
 
-class DataQuerier(abc.ABC):
-    """Abstract base class handling external API requests and caching."""
+class DataQuerier():
     def __init__(self, client=None):
         self.client = client
 
-    @abc.abstractmethod
     def refresh(self, **kwargs):
         pass
 
-    @abc.abstractmethod
     def get_items(self, **kwargs):
         pass
 

@@ -1,10 +1,4 @@
-"""
-Talks to the MBTA v3 API. Owns two things: raw HTTP calls, and a cache of
-stop_id -> name, since looking up a name is just another kind of query.
-Nothing in this file knows about "eastbound" or panels.
-"""
-
-import urequests
+import urequests as requests
 
 
 class MBTAClient:
@@ -21,7 +15,7 @@ class MBTAClient:
         if stop_id in self._stop_name_cache:
             return self._stop_name_cache[stop_id]
         try:
-            resp = urequests.get(
+            resp = requests.get(
                 f"{self.base_url}/stops/{stop_id}", headers=self.headers, timeout=10
             )
             #resp.raise_for_status()
@@ -46,9 +40,6 @@ class MBTAClient:
             
         query_string = "&".join(f"{k}={v}" for k, v in params.items())
         full_url = f"{self.base_url}/predictions?{query_string}"
-        try:
-            resp = urequests.get(full_url, headers=self.headers, timeout=10)
-            resp = resp.json()
-        except Exception:
-            resp = {}
+        resp = requests.get(full_url, headers=self.headers, timeout=10).json()
+        #resp.raise_for_status()
         return resp
